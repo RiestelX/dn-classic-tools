@@ -5,7 +5,10 @@ export const calculateGoldSplit = (g: number, s: number, cp: number, stamps: num
   if (netPool < 0) return null;
 
   const rawShare = netPool / totalMembers;
+  
   const nonGuildTransferAmount = rawShare / 1.003;
+  
+  const mailTransferAmount = Math.max(0, nonGuildTransferAmount - 20);
 
   const formatCoin = (copperVal: number) => ({
     gold: Math.floor(copperVal / 10000),
@@ -15,6 +18,7 @@ export const calculateGoldSplit = (g: number, s: number, cp: number, stamps: num
 
   return {
     guildShare: formatCoin(rawShare),
-    nonGuildTransfer: formatCoin(nonGuildTransferAmount)
+    nonGuildTransfer: formatCoin(nonGuildTransferAmount),
+    mailTransfer: formatCoin(mailTransferAmount)
   };
 };

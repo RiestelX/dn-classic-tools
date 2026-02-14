@@ -4,7 +4,7 @@ import { calculateGoldSplit } from '@/utils/calculations';
 
 export default function GoldSplitter() {
     const [inputs, setInputs] = useState({ gold: '', silver: '', copper: '', stamps: '', members: '8' });
-    const [result, setResult] = useState<{ guildShare: any, nonGuildTransfer: any } | null>(null);
+    const [result, setResult] = useState<{ guildShare: any, nonGuildTransfer: any, mailTransfer: any } | null>(null);
 
     const performCalculation = () => {
         const res = calculateGoldSplit(
@@ -16,14 +16,14 @@ export default function GoldSplitter() {
         );
 
         if (res === null) {
-            alert("ยอดขายไม่พอจ่ายค่า Stamp!");
+            alert("ยอดขายไม่พอจ่ายค่าสแตมป์!");
             return;
         }
         setResult(res);
     };
 
     return (
-        <div className="container mx-auto w-[95%] max-w-[550px] mt-8 p-8 bg-[#252525] rounded-[24px] shadow-2xl font-kanit">
+        <div className="container mx-auto w-[95%] max-w-[550px] mt-0 p-8 bg-[#252525] rounded-[24px] shadow-2xl font-kanit">
             <h2 className="text-[#ffd700] text-2xl font-semibold text-center mb-8">
                 <i className="fas fa-coins mr-2"></i> หารเงินเรด
             </h2>
@@ -93,7 +93,7 @@ export default function GoldSplitter() {
 
                     <div className="p-4 bg-[#1a1a1a] rounded-2xl border-l-4 border-orange-500">
                         <div className="flex justify-between items-center mb-2">
-                            <small className="text-orange-500 font-medium">เทรดปกติ (หักค่าธรรมเนียมออก):</small>
+                            <small className="text-orange-500 font-medium">เทรดปกติ (หักค่าธรรมเนียม):</small>
                             <span className="text-[10px] bg-orange-500/20 text-orange-500 px-2 py-0.5 rounded">Fee 0.3%</span>
                         </div>
                         <div className="flex gap-3 text-lg font-semibold">
@@ -103,11 +103,23 @@ export default function GoldSplitter() {
                         </div>
                     </div>
 
+                    <div className="p-4 bg-[#1a1a1a] rounded-2xl border-l-4 border-blue-400">
+                        <div className="flex justify-between items-center mb-2">
+                            <small className="text-blue-400 font-medium">ส่งจดหมาย (หักค่าธรรมเนียม + 20 C):</small>
+                            <span className="text-[10px] bg-blue-400/20 text-blue-400 px-2 py-0.5 rounded">Fee 0.3% + 20 C</span>
+                        </div>
+                        <div className="flex gap-3 text-lg font-semibold">
+                            <span className="text-[#ffcc00]">{result.mailTransfer.gold.toLocaleString()}<CoinUnit type="gold" /></span>
+                            <span className="text-[#e0e0e0]">{result.mailTransfer.silver}<CoinUnit type="silver" /></span>
+                            <span className="text-[#ff9966]">{result.mailTransfer.copper}<CoinUnit type="copper" /></span>
+                        </div>
+                    </div>
+
                     <div className="mt-4 p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
                         <p className="text-[0.75rem] text-blue-300 leading-relaxed text-center">
                             <i className="fas fa-info-circle mr-1"></i>
                             ระบบคำนวณแบบ <b>"คนเทรดไม่เข้าเนื้อ"</b> <br />
-                            คนที่ไม่ได้เทรดผ่านคลังกิลด์จะได้รับยอดที่หัก 0.3% ออกไปแล้ว เพื่อให้ยอดรวมที่จ่ายไม่เกินงบ
+                            คนที่ไม่ได้เทรดผ่านคลังกิลด์จะได้รับยอดที่หัก 0.3% ออกไปแล้ว ถ้าส่งจดหมายหักอีก 20 C
                         </p>
                     </div>
                 </div>
