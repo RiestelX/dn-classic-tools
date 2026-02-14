@@ -1,14 +1,19 @@
-export const calculateGoldSplit = (g: number, s: number, cp: number, stamps: number, totalMembers: number) => {
+export const calculateGoldSplit = (g: number, s: number, cp: number, stamps: number, totalMembers: number, nonGuildCount: number) => {
   const totalCopper = (g * 10000) + (s * 100) + cp;
-  const netPool = totalCopper - (stamps * 5 * 10000);
+  const stampCost = stamps * 5 * 10000;
+  const netPool = totalCopper - stampCost;
 
   if (netPool < 0) return null;
 
   const rawShare = netPool / totalMembers;
+
+  const nonGuildTransferAmount = rawShare / 1.003; 
   
-  const nonGuildTransferAmount = rawShare / 1.003;
-  
-  const mailTransferAmount = Math.max(0, nonGuildTransferAmount - 20);
+  const totalGuildPortion = netPool - (rawShare * nonGuildCount);
+
+  const sellerAndNonGuildShares = rawShare * (1 + nonGuildCount);
+
+  const netGuildDeposit = netPool - sellerAndNonGuildShares;
 
   const formatCoin = (copperVal: number) => ({
     gold: Math.floor(copperVal / 10000),
@@ -19,6 +24,8 @@ export const calculateGoldSplit = (g: number, s: number, cp: number, stamps: num
   return {
     guildShare: formatCoin(rawShare),
     nonGuildTransfer: formatCoin(nonGuildTransferAmount),
-    mailTransfer: formatCoin(mailTransferAmount)
+    mailTransfer: formatCoin(Math.max(0, nonGuildTransferAmount - 20)),
+    totalGuildPortion: formatCoin(totalGuildPortion),
+    netGuildDeposit: formatCoin(netGuildDeposit)
   };
 };
