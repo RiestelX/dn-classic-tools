@@ -22,8 +22,19 @@ export default function GoldSplitter() {
         setResult(res);
     };
 
+    const handleInputChange = (field: string, value: string) => {
+        if (field === 'silver' || field === 'copper') {
+            const cleanValue = value.replace(/\D/g, '');
+            if (cleanValue.length <= 2) {
+                setInputs(prev => ({ ...prev, [field]: cleanValue }));
+            }
+        } else {
+            setInputs(prev => ({ ...prev, [field]: value }));
+        }
+    };
+
     return (
-        <div className="container mx-auto w-[95%] max-w-[550px] mt-0 p-8 bg-[#252525] rounded-[24px] shadow-2xl font-kanit">
+        <div className="container mx-auto w-[95%] max-w-[550px] mt-2 p-8 bg-[#252525] rounded-[24px] shadow-2xl font-kanit">
             <h2 className="text-[#ffd700] text-2xl font-semibold text-center mb-8">
                 <i className="fas fa-coins mr-2"></i> หารเงินเรด
             </h2>
@@ -33,16 +44,16 @@ export default function GoldSplitter() {
                     e.preventDefault();
                     performCalculation();
                 }}
-                className="space-y-5"
+                className="space-y-3"
             >
                 <div>
                     <label className="text-sm font-light text-[#bbb] mb-2 block">
                         <i className="fas fa-shopping-cart mr-1"></i> ราคาขายรวม (Gold | Silver | Copper)
                     </label>
                     <div className="grid grid-cols-3 gap-3">
-                        <input type="number" placeholder="0" className="coin-input" value={inputs.gold} onChange={e => setInputs({ ...inputs, gold: e.target.value })} />
-                        <input type="number" placeholder="0" className="coin-input" value={inputs.silver} onChange={e => setInputs({ ...inputs, silver: e.target.value })} />
-                        <input type="number" placeholder="0" className="coin-input" value={inputs.copper} onChange={e => setInputs({ ...inputs, copper: e.target.value })} />
+                        <input type="number" placeholder="0" className="coin-input" value={inputs.gold} onChange={e => handleInputChange('gold', e.target.value)} />
+                        <input type="number" placeholder="0" className="coin-input" value={inputs.silver} onChange={e => handleInputChange('silver', e.target.value)} />
+                        <input type="number" placeholder="0" className="coin-input" value={inputs.copper} onChange={e => handleInputChange('copper', e.target.value)} />
                     </div>
                 </div>
 
@@ -51,7 +62,7 @@ export default function GoldSplitter() {
                         <label className="text-sm font-light text-[#bbb] mb-2 block">
                             <i className="fas fa-ticket-alt mr-1"></i> สแตมป์ (5 Gold)
                         </label>
-                        <input type="number" placeholder="0" className="coin-input" value={inputs.stamps} onChange={e => setInputs({ ...inputs, stamps: e.target.value })} />
+                        <input type="number" placeholder="0" className="coin-input" value={inputs.stamps} onChange={e => handleInputChange('stamps', e.target.value)} />
                     </div>
                     <div>
                         <label className="text-sm font-light text-[#bbb] mb-2 block">
@@ -61,7 +72,7 @@ export default function GoldSplitter() {
                             type="number"
                             className="coin-input"
                             value={inputs.members}
-                            onChange={e => setInputs({ ...inputs, members: e.target.value })}
+                            onChange={e => handleInputChange('members', e.target.value)}
                         />
                     </div>
                 </div>
