@@ -23,6 +23,232 @@ function loadSkill(): SkillConfig { try { const r = localStorage.getItem(SKEY); 
 function saveBuild(b: BuildState) { try { localStorage.setItem(BKEY, JSON.stringify(b)); } catch { } }
 function saveSkill(s: SkillConfig) { try { localStorage.setItem(SKEY, JSON.stringify(s)); } catch { } }
 
+// ─── Presets ─────────────────────────────────────────────────────────────────
+const PKEY = "dn-presets";
+const MAX_PRESETS = 8;
+
+interface Preset {
+  id: string;
+  name: string;
+  classType: ClassType;
+  savedAt: number;
+  build: BuildState;
+  skill: SkillConfig;
+}
+
+function loadPresets(): Preset[] { try { const r = localStorage.getItem(PKEY); return r ? JSON.parse(r) : []; } catch { return []; } }
+function savePresets(p: Preset[]) { try { localStorage.setItem(PKEY, JSON.stringify(p)); } catch {} }
+
+// Shared preset context via module-level ref pattern
+type PresetPanelState = {
+  open: boolean; setOpen: (v: boolean) => void;
+  presets: Preset[]; setPresets: (p: Preset[]) => void;
+  saving: number | null; setSaving: (v: number | null) => void;
+  nameInput: string; setNameInput: (v: string) => void;
+  confirmDel: string | null; setConfirmDel: (v: string | null) => void;
+  loadFlash: string | null; setLoadFlash: (v: string | null) => void;
+  nameRef: React.RefObject<HTMLInputElement | null>;
+  build: BuildState; skill: SkillConfig; onLoad: (b: BuildState, s: SkillConfig) => void;
+};
+
+function usePresetState(build: BuildState, skill: SkillConfig, onLoad: (b: BuildState, s: SkillConfig) => void) {
+  const [open, setOpen] = useState(false);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [saving, setSaving] = useState<number | null>(null);
+  const [nameInput, setNameInput] = useState("");
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [loadFlash, setLoadFlash] = useState<string | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { setPresets(loadPresets()); }, []);
+  useEffect(() => { if (saving !== null) setTimeout(() => nameRef.current?.focus(), 50); }, [saving]);
+  return { open, setOpen, presets, setPresets, saving, setSaving, nameInput, setNameInput,
+    confirmDel, setConfirmDel, loadFlash, setLoadFlash, nameRef, build, skill, onLoad };
+}
+
+function PresetManagerButton({ state }: { state: PresetPanelState }) {
+  const { open, setOpen, presets } = state;
+  return (
+    <button type="button" onClick={() => setOpen(!open)}
+      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all"
+      style={{
+        background: open ? "#ffd70018" : "#141414",
+        border: "1px solid " + (open ? "#ffd70055" : "#383838"),
+        color: open ? "#ffd700" : "#888",
+        boxShadow: open ? "0 0 20px #ffd70010" : "none",
+      }}>
+      <span style={{ fontSize: 15 }}>💾</span> Presets
+      <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+        style={{ background: "#ffd70022", color: "#ffd700aa" }}>
+        {presets.length}/{MAX_PRESETS}
+      </span>
+    </button>
+  );
+}
+
+function PresetPanel({ state }: { state: PresetPanelState }) {
+  const { open, setOpen, presets, setPresets, saving, setSaving, nameInput, setNameInput,
+    confirmDel, setConfirmDel, loadFlash, setLoadFlash, nameRef, build, skill, onLoad } = state;
+
+  if (!open) return null;
+
+  const slots: (Preset | null)[] = Array.from({ length: MAX_PRESETS }, (_, i) => presets[i] ?? null);
+
+  const doSave = (slotIdx: number) => {
+    const existing = presets[slotIdx];
+    const name = nameInput.trim() || (existing?.name ?? `Preset ${slotIdx + 1}`);
+    const preset: Preset = { id: uid(), name, classType: build.class, savedAt: Date.now(), build, skill };
+    const next = [...presets];
+    next[slotIdx] = preset;
+    setPresets(next); savePresets(next); setSaving(null); setNameInput("");
+  };
+
+  const doLoad = (p: Preset) => {
+    onLoad(p.build, p.skill);
+    setLoadFlash(p.id); setTimeout(() => setLoadFlash(null), 1200);
+  };
+
+  const doDelete = (id: string) => {
+    const next = presets.filter(p => p.id !== id);
+    setPresets(next); savePresets(next); setConfirmDel(null);
+  };
+
+  const fmt = (ts: number) => {
+    const d = new Date(ts);
+    return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short' }) + ' ' +
+      d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div className="container mx-auto w-[95%] max-w-[1200px] mb-3 rounded-[20px] border border-[#363636] overflow-hidden"
+      style={{ background: "linear-gradient(160deg, #1e1e1e 0%, #1a1a1a 100%)" }}>
+
+      {/* Header strip */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[#2a2a2a]"
+        style={{ background: "linear-gradient(90deg, #ffd70008 0%, transparent 100%)" }}>
+        <div className="flex items-center gap-2">
+          <span className="text-[#ffd700] text-lg">💾</span>
+          <span className="text-sm font-bold text-[#ffd700]">Preset Slots</span>
+          <span className="text-xs text-[#444]">— บันทึก build สูงสุด {MAX_PRESETS} slots</span>
+        </div>
+        <button type="button" onClick={() => setOpen(false)}
+          className="text-[#444] hover:text-[#888] text-xs cursor-pointer transition-colors">✕ ปิด</button>
+      </div>
+
+      {/* Grid */}
+      <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {slots.map((preset, i) => {
+          const cls = preset ? CLASS_INFO[preset.classType] : null;
+          const isFlashing = preset && loadFlash === preset.id;
+          const isSavingThis = saving === i;
+
+          return (
+            <div key={i} className="relative rounded-2xl overflow-hidden transition-all duration-200"
+              style={{
+                border: "1px solid " + (preset ? (cls!.color + "40") : "#282828"),
+                background: preset
+                  ? `linear-gradient(135deg, ${cls!.color}08 0%, #1a1a1a 100%)`
+                  : "#161616",
+                boxShadow: isFlashing ? `0 0 20px ${cls!.color}40` : "none",
+                minHeight: 110,
+              }}>
+
+              {/* Slot number badge */}
+              <div className="absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                style={{
+                  background: preset ? cls!.color + "22" : "#282828",
+                  color: preset ? cls!.color : "#3a3a3a"
+                }}>#{i + 1}</div>
+
+              {preset ? (
+                <>
+                  {/* Class glow top-right */}
+                  <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-20 pointer-events-none"
+                    style={{ background: cls!.color }} />
+                  {/* Class icon */}
+                  <div className="absolute top-1.5 right-2.5 text-xl opacity-60">{cls!.icon}</div>
+
+                  <div className="p-3 pt-6 pb-2 flex flex-col h-full min-h-[110px]">
+                    <div className="text-sm font-bold truncate pr-6" style={{ color: cls!.color }}>
+                      {preset.name}
+                    </div>
+                    <div className="text-[10px] text-[#555] mt-0.5 mb-auto">{preset.classType}</div>
+                    <div className="text-[10px] text-[#3a3a3a] mt-1.5">{fmt(preset.savedAt)}</div>
+
+                    {isSavingThis ? (
+                      <div className="mt-2 flex gap-1">
+                        <input ref={nameRef} value={nameInput} onChange={e => setNameInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') doSave(i); if (e.key === 'Escape') { setSaving(null); setNameInput(""); } }}
+                          placeholder={preset.name}
+                          className="flex-1 min-w-0 bg-[#0e0e0e] border border-[#ffd70055] rounded-lg px-2 py-1 text-xs text-[#e0e0e0] focus:outline-none focus:border-[#ffd700]" />
+                        <button type="button" onClick={() => doSave(i)}
+                          className="px-2 py-1 rounded-lg text-xs font-bold cursor-pointer"
+                          style={{ background: "#ffd70022", color: "#ffd700", border: "1px solid #ffd70055" }}>✓</button>
+                        <button type="button" onClick={() => { setSaving(null); setNameInput(""); }}
+                          className="px-2 py-1 rounded-lg text-xs cursor-pointer text-[#555] border border-[#333]">✕</button>
+                      </div>
+                    ) : confirmDel === preset.id ? (
+                      <div className="mt-2 flex gap-1">
+                        <span className="text-[10px] text-[#ef4444] flex-1 self-center">ลบ?</span>
+                        <button type="button" onClick={() => doDelete(preset.id)}
+                          className="px-2 py-1 rounded-lg text-xs font-bold cursor-pointer"
+                          style={{ background: "#ef444418", color: "#ef4444", border: "1px solid #ef444440" }}>ลบ</button>
+                        <button type="button" onClick={() => setConfirmDel(null)}
+                          className="px-2 py-1 rounded-lg text-xs cursor-pointer text-[#555] border border-[#333]">ยก</button>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex gap-1">
+                        <button type="button" onClick={() => doLoad(preset)}
+                          className="flex-1 py-1 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                          style={{ background: cls!.color + "22", color: cls!.color, border: "1px solid " + cls!.color + "40" }}>
+                          {isFlashing ? "✓ โหลด" : "โหลด"}
+                        </button>
+                        <button type="button" onClick={() => { setSaving(i); setNameInput(preset.name); }}
+                          className="px-2 py-1 rounded-lg text-[10px] cursor-pointer text-[#555] border border-[#333] hover:border-[#ffd70040] hover:text-[#ffd700] transition-colors">
+                          ✎
+                        </button>
+                        <button type="button" onClick={() => setConfirmDel(preset.id)}
+                          className="px-2 py-1 rounded-lg text-[10px] cursor-pointer text-[#444] border border-[#333] hover:border-[#ef444440] hover:text-[#ef4444] transition-colors">
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                isSavingThis ? (
+                  <div className="p-3 pt-6 flex flex-col h-full min-h-[110px]">
+                    <div className="text-[10px] text-[#555] mb-2">ชื่อ preset</div>
+                    <input ref={nameRef} value={nameInput} onChange={e => setNameInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') doSave(i); if (e.key === 'Escape') { setSaving(null); setNameInput(""); } }}
+                      placeholder={`Preset ${i + 1}`}
+                      className="w-full bg-[#0e0e0e] border border-[#ffd70055] rounded-lg px-2 py-1 text-xs text-[#e0e0e0] focus:outline-none focus:border-[#ffd700] mb-2" />
+                    <div className="flex gap-1 mt-auto">
+                      <button type="button" onClick={() => doSave(i)}
+                        className="flex-1 py-1 rounded-lg text-xs font-bold cursor-pointer"
+                        style={{ background: "#ffd70022", color: "#ffd700", border: "1px solid #ffd70055" }}>บันทึก</button>
+                      <button type="button" onClick={() => { setSaving(null); setNameInput(""); }}
+                        className="px-2 py-1 rounded-lg text-xs cursor-pointer text-[#555] border border-[#333]">✕</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => { setSaving(i); setNameInput(""); }}
+                    className="w-full h-full min-h-[110px] flex flex-col items-center justify-center gap-2 cursor-pointer group transition-all duration-200 hover:bg-[#ffd70006]">
+                    <div className="w-8 h-8 rounded-full border-2 border-dashed border-[#2e2e2e] group-hover:border-[#ffd70030] flex items-center justify-center transition-colors">
+                      <span className="text-[#2e2e2e] group-hover:text-[#ffd70050] text-lg font-light transition-colors">+</span>
+                    </div>
+                    <span className="text-[10px] text-[#2e2e2e] group-hover:text-[#ffd70040] transition-colors font-medium">บันทึก Build</span>
+                  </button>
+                )
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 // Helpers
 const getEff = (pair: Pair): StatRow[] => {
   const s1 = pair[1].filter(r => r.type !== '' || r.value !== '');
@@ -686,7 +912,7 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
     if (!row) return null;
     return (
       <div className="flex gap-1 items-center group/sbrow min-w-0">
-        {PieceSel({ pieces: entryPieces, onPiece: (p: number) => moveRow(entryPieces, side, rowIdx, p), dim })}
+{PieceSel({ pieces: entryPieces, onPiece: (p: number) => moveRow(entryPieces, side, rowIdx, p), dim })}
         <div className="w-[130px] shrink-0">
           <StatTypeSelect value={row.type} onChange={v => updRow(entryPieces, side, rowIdx, { ...row, type: v })} dim={dim} />
         </div>
@@ -1007,6 +1233,10 @@ export default function DamageCalculator() {
     localStorage.removeItem(SKEY);
     setResetFlash(true); setTimeout(() => setResetFlash(false), 1500);
   }, []);
+  const loadPreset = useCallback((b: BuildState, s: SkillConfig) => {
+    setBuild(b); setSkillState(s);
+  }, []);
+  const presetState = usePresetState(build, skill, loadPreset);
 
   const classColor = CLASS_INFO[build.class].color;
   const TABS: [ActiveTab, string, string, string][] = [
@@ -1033,6 +1263,7 @@ export default function DamageCalculator() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-[#ffd700] text-2xl font-semibold">⚔️ คำนวณดาเมจ</h2>
           <div className="flex items-center gap-2 flex-wrap">
+            <PresetManagerButton state={presetState} />
             <button type="button" onClick={() => setCmp(v => !v)}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all"
               style={{
@@ -1081,6 +1312,8 @@ export default function DamageCalculator() {
           </span>}
         </div>
       </div>
+
+      <PresetPanel state={presetState} />
 
       <div className="container mx-auto w-[95%] max-w-[1200px] mb-6 flex gap-4 items-start">
         <div className="flex-1 min-w-0 bg-[#282828] rounded-[24px] border border-[#363636]">
