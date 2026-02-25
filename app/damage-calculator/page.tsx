@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   STAT_TYPES, STAT_COLORS, FD_TABLE, CLASS_INFO, ARMOR_LABELS, ELEM_COLORS,
@@ -686,7 +686,7 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
     if (!row) return null;
     return (
       <div className="flex gap-1 items-center group/sbrow min-w-0">
-        <PieceSel pieces={entryPieces} onPiece={p => moveRow(entryPieces, side, rowIdx, p)} dim={dim} />
+        {PieceSel({ pieces: entryPieces, onPiece: (p: number) => moveRow(entryPieces, side, rowIdx, p), dim })}
         <div className="w-[130px] shrink-0">
           <StatTypeSelect value={row.type} onChange={v => updRow(entryPieces, side, rowIdx, { ...row, type: v })} dim={dim} />
         </div>
@@ -711,8 +711,9 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
       <div className="space-y-1.5">
         {bonuses.map(b =>
           rows(bonuses, b.pieces, side).map((row: StatRow, ri: number) => (
-            <SBRow key={`${b.pieces}-${side}-${ri}-${row.id}`} entryPieces={b.pieces} rowIdx={ri} side={side}
-              dim={b.pieces > 0 && !isEnabled(b.pieces)} />
+            <React.Fragment key={`${b.pieces}-${side}-${ri}-${row.id}`}>
+              {SBRow({ entryPieces: b.pieces, rowIdx: ri, side, dim: b.pieces > 0 && !isEnabled(b.pieces) })}
+            </React.Fragment>
           ))
         )}
         <button type="button" onClick={() => addStat(side)}
@@ -765,11 +766,16 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
   if (!cmp) {
     return (
       <InnerCard className="p-3">
-        <PieceChips side={0} />
-        <AllRows side={0} isEnabled={p => bonuses.find(b => b.pieces === p)?.enabledCur ?? false} />
+        {PieceChips({ side: 0 })}
+        {AllRows({ side: 0, isEnabled: p => bonuses.find(b => b.pieces === p)?.enabledCur ?? false })}
       </InnerCard>
     );
   }
+
+  const getEnabledRows = (side: 0 | 1) =>
+    bonuses.filter(b => b.pieces > 0 && (side === 0 ? b.enabledCur : b.enabledCmp))
+      .flatMap(b => b.effects[0].pair[side] ?? []);
+
   return (
     <InnerCard>
       <div className="grid grid-cols-2 divide-x divide-[#282828]">
@@ -777,8 +783,8 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
           <div className="flex items-center h-[22px] mb-2">
             <div className="text-[10px] text-[#444] font-bold uppercase tracking-widest">ปัจจุบัน</div>
           </div>
-          <PieceChips side={0} />
-          <AllRows side={0} isEnabled={p => bonuses.find(b => b.pieces === p)?.enabledCur ?? false} />
+          {PieceChips({ side: 0 })}
+          {AllRows({ side: 0, isEnabled: p => bonuses.find(b => b.pieces === p)?.enabledCur ?? false })}
         </div>
         <div className="p-3">
           <div className="flex items-center h-[22px] gap-2 mb-2">
@@ -789,9 +795,12 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
               ← copy
             </button>
           </div>
-          <PieceChips side={1} />
-          <AllRows side={1} isEnabled={p => bonuses.find(b => b.pieces === p)?.enabledCmp ?? false} />
+          {PieceChips({ side: 1 })}
+          {AllRows({ side: 1, isEnabled: p => bonuses.find(b => b.pieces === p)?.enabledCmp ?? false })}
         </div>
+      </div>
+      <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
+        <DiffPills a={getEnabledRows(0)} b={getEnabledRows(1)} />
       </div>
     </InnerCard>
   );
