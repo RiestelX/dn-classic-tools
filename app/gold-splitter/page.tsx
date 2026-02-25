@@ -46,7 +46,7 @@ export default function GoldSplitter() {
     };
 
     return (
-        <div className="container mx-auto w-[95%] max-w-[550px] mt-2 mb-4 p-8 bg-[#252525] rounded-[24px] shadow-2xl font-kanit">
+        <div className="container mx-auto w-[95%] max-w-[550px] mt-2 mb-4 p-8 bg-[#252525] rounded-[24px] font-kanit">
             <h2 className="text-[#ffd700] text-2xl font-semibold text-center mb-8">
                 <i className="fas fa-coins mr-2"></i> หารเงินเรด
             </h2>
