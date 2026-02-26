@@ -352,8 +352,7 @@ function StatList({ rows, onChange, dim, accent = "#ffd700" }: {
 }
 
 // DiffPills
-function DiffPills({ a, b, bIsEmpty }: { a: StatRow[]; b: StatRow[]; bIsEmpty?: boolean }) {
-  if (bIsEmpty) return <div className="text-xs text-[#3a3a3a] italic">ไม่ต่างกัน</div>;
+function DiffPills({ a, b }: { a: StatRow[]; b: StatRow[] }) {
   const sum = (rows: StatRow[], t: string, isPct: boolean) =>
     rows.filter(r => r.type === t && r.isPercent === isPct)
       .reduce((acc, r) => acc + (parseFloat((r.value || '').replace(/,/g, '')) || 0), 0);
@@ -463,7 +462,6 @@ function SlotRow({ label, pair, potPair, onPairChange, onPotChange, cmp, accent 
   const [potOpen, setPotOpen] = useState(false);
   const [cur] = pair;
   const pot = potPair ?? emptyPair();
-  const isRight1Empty = pair[1].every(r => !r.type && !r.value);
   const copyToRight = () => {
     const newRight = cur.map(r => ({ ...r, id: uid() }));
     onPairChange([cur, newRight]);
@@ -492,7 +490,7 @@ function SlotRow({ label, pair, potPair, onPairChange, onPotChange, cmp, accent 
             <div className="text-[10px] font-bold uppercase tracking-widest pl-3" style={{ color: accent }}>ใหม่</div>
           </div>
           <PairCols pair={pair} onChange={onPairChange} accent={accent} dim0 />
-          <div className="mt-2 pt-2 border-t border-[#232323]"><DiffPills a={cur} b={getEff(pair)} bIsEmpty={isRight1Empty} /></div>
+          <div className="mt-2 pt-2 border-t border-[#232323]"><DiffPills a={cur} b={getEff(pair)} /></div>
         </div>
       ) : (
         <div className="p-3">
@@ -500,7 +498,8 @@ function SlotRow({ label, pair, potPair, onPairChange, onPotChange, cmp, accent 
         </div>
       )}
       {onPotChange && (
-        <SubPanel label="Potential" icon="◈" accent="#a78bfa" open={potOpen} onToggle={() => setPotOpen(o => !o)}>
+        <SubPanel label="Potential" icon="◈" accent="#a78bfa" open={potOpen} onToggle={() => setPotOpen(o => !o)}
+          onCopy={cmp ? () => onPotChange([pot[0], pot[0].map((r: StatRow) => ({ ...r, id: uid() }))]) : undefined}>
           {cmp ? (
             <PairCols pair={pot} onChange={p => onPotChange(p)} accent="#a78bfa" dim0 />
           ) : (
@@ -551,7 +550,6 @@ function PairPanel({ pair, onChange, cmp, accent = "#ffd700" }: {
   pair: Pair; onChange: (p: Pair) => void; cmp: boolean; accent?: string;
 }) {
   const [cur, cm] = pair;
-  const isRight1Empty = cm.every(r => !r.type && !r.value);
   const copyToRight = () => onChange([cur, cur.map(r => ({ ...r, id: uid() }))]);
   if (!cmp) return (
     <InnerCard className="p-3">
@@ -571,24 +569,34 @@ function PairPanel({ pair, onChange, cmp, accent = "#ffd700" }: {
         <PairCols pair={pair} onChange={onChange} accent={accent} dim0 />
       </div>
       <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
-        <DiffPills a={cur} b={getEff(pair)} bIsEmpty={isRight1Empty} />
+        <DiffPills a={cur} b={getEff(pair)} />
       </div>
     </InnerCard>
   );
 }
 
 // SubPanel
-function SubPanel({ label, icon, accent, open, onToggle, children }: {
-  label: string; icon: string; accent: string; open: boolean; onToggle: () => void; children: React.ReactNode;
+function SubPanel({ label, icon, accent, open, onToggle, onCopy, children }: {
+  label: string; icon: string; accent: string; open: boolean; onToggle: () => void;
+  onCopy?: () => void; children: React.ReactNode;
 }) {
   return (
     <div className="border-t border-[#252525]">
-      <button type="button" onClick={onToggle}
-        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold hover:bg-[#2a2a2a] transition-colors cursor-pointer"
-        style={{ color: open ? accent : "#4a4a4a" }}>
-        <span>{icon} {label}</span>
-        <span style={{ display: "inline-block", transform: open ? "rotate(180deg)" : "none", fontSize: 9, color: "#555" }}>▼</span>
-      </button>
+      <div className="flex items-center">
+        <button type="button" onClick={onToggle}
+          className="flex-1 flex items-center justify-between px-3 py-2 text-xs font-bold hover:bg-[#2a2a2a] transition-colors cursor-pointer"
+          style={{ color: open ? accent : "#4a4a4a" }}>
+          <span>{icon} {label}</span>
+          <span style={{ display: "inline-block", transform: open ? "rotate(180deg)" : "none", fontSize: 9, color: "#555" }}>▼</span>
+        </button>
+        {onCopy && (
+          <button type="button" onClick={e => { e.stopPropagation(); onCopy(); }}
+            className="text-[10px] px-1.5 py-0.5 rounded border cursor-pointer hover:opacity-90 transition-opacity mr-2 shrink-0"
+            style={{ borderColor: accent + "40", color: accent + "90", background: accent + "10" }}>
+            ← copy
+          </button>
+        )}
+      </div>
       {open && (
         <div className="px-3 pb-3 pt-2 border-t border-[#252525]" style={{ background: "#191919" }}>
           {children}
@@ -608,7 +616,6 @@ function ArmorSlotRow({ label, slot, onChange, cmp, accent = "#fb923c" }: {
   const [curEn, cmEn] = slot.enhancedPair;
   const pot = slot.potentialPair ?? emptyPair();
   const [curPot] = pot;
-  const isRight1Empty = cmSt.every(r => !r.type && !r.value) && cmEn.every(r => !r.type && !r.value);
   const copyToRight = () => {
     onChange({
       ...slot,
@@ -638,14 +645,16 @@ function ArmorSlotRow({ label, slot, onChange, cmp, accent = "#fb923c" }: {
           <StatList rows={curSt} onChange={r => onChange({ ...slot, statPair: [r, cmSt] })} accent={accent} />
         )}
       </div>
-      <SubPanel label="Enhanced Ability" icon="✦" accent="#ffd700" open={enhOpen} onToggle={() => setEnhOpen(o => !o)}>
+      <SubPanel label="Enhanced Ability" icon="✦" accent="#ffd700" open={enhOpen} onToggle={() => setEnhOpen(o => !o)}
+        onCopy={cmp ? () => onChange({ ...slot, enhancedPair: [curEn, curEn.map(r => ({ ...r, id: uid() }))] }) : undefined}>
         {cmp ? (
           <PairCols pair={slot.enhancedPair} onChange={p => onChange({ ...slot, enhancedPair: p })} accent="#ffd700" dim0 />
         ) : (
           <StatList rows={curEn} onChange={r => onChange({ ...slot, enhancedPair: [r, cmEn] })} accent="#ffd700" />
         )}
       </SubPanel>
-      <SubPanel label="Potential" icon="◈" accent="#a78bfa" open={potOpen} onToggle={() => setPotOpen(o => !o)}>
+      <SubPanel label="Potential" icon="◈" accent="#a78bfa" open={potOpen} onToggle={() => setPotOpen(o => !o)}
+        onCopy={cmp ? () => onChange({ ...slot, potentialPair: [curPot, curPot.map((r: StatRow) => ({ ...r, id: uid() }))] }) : undefined}>
         {cmp ? (
           <PairCols pair={pot} onChange={p => onChange({ ...slot, potentialPair: p })} accent="#a78bfa" dim0 />
         ) : (
@@ -654,7 +663,7 @@ function ArmorSlotRow({ label, slot, onChange, cmp, accent = "#fb923c" }: {
       </SubPanel>
       {cmp && (
         <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
-          <DiffPills a={[...curSt, ...curEn, ...curPot]} b={[...getEff(slot.statPair), ...getEff(slot.enhancedPair), ...getEff(pot)]} bIsEmpty={isRight1Empty} />
+          <DiffPills a={[...curSt, ...curEn, ...curPot]} b={[...getEff(slot.statPair), ...getEff(slot.enhancedPair), ...getEff(pot)]} />
         </div>
       )}
     </InnerCard>
@@ -747,6 +756,44 @@ function WeaponPctRow({ label, curMin, curMax, cmpMin, cmpMax, onCurMin, onCurMa
   );
 }
 
+// Convert weapon numeric fields into synthetic StatRows for diff
+function weaponCmpTouched(data: WeaponData): boolean {
+  return [
+    data.physMinCmp, data.physMaxCmp, data.magMinCmp, data.magMaxCmp,
+    data.enhPhysMinCmp, data.enhPhysMaxCmp, data.enhMagMinCmp, data.enhMagMaxCmp,
+    data.potPhysMinCmp, data.potPhysMaxCmp, data.potMagMinCmp, data.potMagMaxCmp,
+  ].some(v => (v ?? '').trim() !== '') ||
+  data.statPair[1].some(r => r.type || r.value) ||
+  data.enhancedPair[1].some(r => r.type || r.value) ||
+  (data.potentialPair?.[1] ?? []).some((r: StatRow) => r.type || r.value);
+}
+
+function weaponNumRows(data: WeaponData, side: 0 | 1): StatRow[] {
+  const g = (cur: string, cmp: string) => {
+    const val = side === 0 ? cur : cmp;
+    return parseFloat((val || '').replace(/,/g, '')) || 0;
+  };
+  const rows: StatRow[] = [];
+  const push = (type: string, val: number, isPct: boolean) => {
+    if (val !== 0) rows.push({ id: uid(), type, value: String(val), isPercent: isPct });
+  };
+  const physBase = (g(data.physMin, data.physMinCmp) + g(data.physMax, data.physMaxCmp)) / 2;
+  const magBase  = (g(data.magMin, data.magMinCmp) + g(data.magMax, data.magMaxCmp)) / 2;
+  push('Physical Attack', physBase, false);
+  push('Magic Attack',    magBase,  false);
+  const physEnh = (g(data.enhPhysMin ?? '', data.enhPhysMinCmp ?? '') + g(data.enhPhysMax ?? '', data.enhPhysMaxCmp ?? '')) / 2;
+  const magEnh  = (g(data.enhMagMin ?? '', data.enhMagMinCmp ?? '') + g(data.enhMagMax ?? '', data.enhMagMaxCmp ?? '')) / 2;
+  push('Physical Attack', physEnh, false);
+  push('Magic Attack',    magEnh,  false);
+  const physPctMin = g(data.potPhysMin ?? '', data.potPhysMinCmp ?? '');
+  const physPctMax = g(data.potPhysMax ?? '', data.potPhysMaxCmp ?? '');
+  const magPctMin  = g(data.potMagMin ?? '', data.potMagMinCmp ?? '');
+  const magPctMax  = g(data.potMagMax ?? '', data.potMagMaxCmp ?? '');
+  push('Physical Attack', (physPctMin + physPctMax) / 2, true);
+  push('Magic Attack',    (magPctMin + magPctMax) / 2,   true);
+  return rows;
+}
+
 // WeaponCard
 function WeaponCard({ label, data, onChange, cmp, accent }: {
   label: string; data: WeaponData; onChange: (d: WeaponData) => void; cmp: boolean; accent: string;
@@ -754,7 +801,6 @@ function WeaponCard({ label, data, onChange, cmp, accent }: {
   const [enhOpen, setEnhOpen] = useState(false);
   const [potOpen, setPotOpen] = useState(false);
   const pot = data.potentialPair ?? emptyPair();
-  const isRight1Empty = data.statPair[1].every(r => !r.type && !r.value);
   const copyToRight = () => {
     onChange({
       ...data,
@@ -793,7 +839,8 @@ function WeaponCard({ label, data, onChange, cmp, accent }: {
           )}
         </div>
       </div>
-      <SubPanel label="Enhanced Ability" icon="✦" accent="#ffd700" open={enhOpen} onToggle={() => setEnhOpen(o => !o)}>
+      <SubPanel label="Enhanced Ability" icon="✦" accent="#ffd700" open={enhOpen} onToggle={() => setEnhOpen(o => !o)}
+        onCopy={cmp ? () => onChange({ ...data, enhPhysMinCmp: data.enhPhysMin, enhPhysMaxCmp: data.enhPhysMax, enhMagMinCmp: data.enhMagMin, enhMagMaxCmp: data.enhMagMax, enhancedPair: [data.enhancedPair[0], data.enhancedPair[0].map(r => ({ ...r, id: uid() }))] }) : undefined}>
         <div className="space-y-3">
           <WeaponDmgRow label="⚔️ Physical" cmp={cmp} rowColor="#ffd700"
             curMin={data.enhPhysMin ?? ""} curMax={data.enhPhysMax ?? ""} cmpMin={data.enhPhysMinCmp ?? ""} cmpMax={data.enhPhysMaxCmp ?? ""}
@@ -810,7 +857,8 @@ function WeaponCard({ label, data, onChange, cmp, accent }: {
           )}
         </div>
       </SubPanel>
-      <SubPanel label="Potential" icon="◈" accent="#a78bfa" open={potOpen} onToggle={() => setPotOpen(o => !o)}>
+      <SubPanel label="Potential" icon="◈" accent="#a78bfa" open={potOpen} onToggle={() => setPotOpen(o => !o)}
+        onCopy={cmp ? () => onChange({ ...data, potPhysMinCmp: data.potPhysMin, potPhysMaxCmp: data.potPhysMax, potMagMinCmp: data.potMagMin, potMagMaxCmp: data.potMagMax, potentialPair: [pot[0], pot[0].map((r: StatRow) => ({ ...r, id: uid() }))] }) : undefined}>
         <div className="space-y-3">
           <WeaponPctRow label="⚔️ Physical %" cmp={cmp} rowColor="#a78bfa"
             curMin={data.potPhysMin ?? ""} curMax={data.potPhysMax ?? ""} cmpMin={data.potPhysMinCmp ?? ""} cmpMax={data.potPhysMaxCmp ?? ""}
@@ -829,7 +877,12 @@ function WeaponCard({ label, data, onChange, cmp, accent }: {
       </SubPanel>
       {cmp && (
         <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
-          <DiffPills a={[...data.statPair[0], ...data.enhancedPair[0], ...pot[0]]} b={[...getEff(data.statPair), ...getEff(data.enhancedPair), ...getEff(pot)]} bIsEmpty={isRight1Empty} />
+          {weaponCmpTouched(data) ? (
+            <DiffPills
+              a={[...weaponNumRows(data, 0), ...data.statPair[0], ...data.enhancedPair[0], ...pot[0]]}
+              b={[...weaponNumRows(data, 1), ...getEff(data.statPair), ...getEff(data.enhancedPair), ...getEff(pot)]}
+            />
+          ) : <div className="text-xs text-[#3a3a3a] italic">ไม่ต่างกัน</div>}
         </div>
       )}
     </InnerCard>
@@ -840,7 +893,6 @@ function WeaponCard({ label, data, onChange, cmp, accent }: {
 function CostumeWeaponCard({ label, slot, onChange, cmp, accent }: {
   label: string; slot: CostumeSlot; onChange: (s: CostumeSlot) => void; cmp: boolean; accent: string;
 }) {
-  const isRight1Empty = slot.statPair[1].every(r => !r.type && !r.value);
   const copyToRight = () => {
     onChange({
       ...slot,
@@ -875,7 +927,7 @@ function CostumeWeaponCard({ label, slot, onChange, cmp, accent }: {
       </div>
       {cmp && (
         <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
-          <DiffPills a={slot.statPair[0]} b={getEff(slot.statPair)} bIsEmpty={isRight1Empty} />
+          <DiffPills a={slot.statPair[0]} b={getEff(slot.statPair)} />
         </div>
       )}
     </InnerCard>
@@ -1028,7 +1080,9 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
 
   function PieceChips({ side }: { side: 0 | 1 }) {
     const allPieces = bonuses.filter(b => b.pieces > 0);
-    const displayPieces = cmp && side === 0 ? allPieces.filter(b => rows(bonuses, b.pieces, 0).length > 0) : allPieces;
+    const displayPieces = cmp
+      ? allPieces.filter(b => rows(bonuses, b.pieces, side).length > 0)
+      : allPieces;
 
     if (displayPieces.length === 0) return (
       <div className="text-xs text-[#3a3a3a] italic mb-3">กด "+ เพิ่ม stat" เพื่อเริ่ม</div>
@@ -1075,12 +1129,7 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
 
   const getEnabledRows = (side: 0 | 1) =>
     bonuses.filter(b => b.pieces > 0 && (side === 0 ? b.enabledCur : b.enabledCmp))
-      .flatMap(b => {
-        const pair = b.effects[0].pair;
-        if (side === 0) return pair[0];
-        const s1 = (pair[1] ?? []).filter((r: StatRow) => r.type !== '' || r.value !== '');
-        return s1.length > 0 ? pair[1] : pair[0];
-      });
+      .flatMap(b => (b.effects[0].pair[side] ?? []));
 
   return (
     <InnerCard>
@@ -1106,7 +1155,9 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
         </div>
       </div>
       <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
-        <DiffPills a={getEnabledRows(0)} b={getEnabledRows(1)} />
+        {getEnabledRows(1).some(r => r.type || r.value)
+          ? <DiffPills a={getEnabledRows(0)} b={getEnabledRows(1)} />
+          : <div className="text-xs text-[#3a3a3a] italic">ไม่ต่างกัน</div>}
       </div>
     </InnerCard>
   );
@@ -1299,7 +1350,7 @@ function RightPanel({ build, skill, setSkill, cmp }: {
           <DRow label="⚔️ Base" min={cur.baseMin} max={cur.baseMax} cMin={cmpR.baseMin} cMax={cmpR.baseMax} color="#94a3b8" />
           <DRow label={"🌊 Element (" + (skill.skillElement === "none" ? "+0" : skill.skillElement) + ")"}
             min={cur.elemMin} max={cur.elemMax} cMin={cmpR.elemMin} cMax={cmpR.elemMax} color={ELEM_COLORS[skill.skillElement]} />
-          <DRow label={"✨ Final Damage " + (cmp ? `${cur.fdPct}% → ${cmpR.fdPct}% (${cmpR.fdPct - cur.fdPct >= 0 ? "+" : ""}${(cmpR.fdPct - cur.fdPct).toFixed(0)}% pts)` : `${cur.fdPct}%`)} min={cur.fdMin} max={cur.fdMax} cMin={cmpR.fdMin} cMax={cmpR.fdMax} color="#ffd700" />
+          <DRow label={"✨ Final Damage " + (cmp ? `${cur.fdPct}% → ${cmpR.fdPct}% (${cmpR.fdPct - cur.fdPct >= 0 ? "+" : ""}${(cmpR.fdPct - cur.fdPct).toFixed(0)}%)` : `${cur.fdPct}%`)} min={cur.fdMin} max={cur.fdMax} cMin={cmpR.fdMin} cMax={cmpR.fdMax} color="#ffd700" />
           <DRow label="💥 Critical ×2" min={cur.critMin} max={cur.critMax} cMin={cmpR.critMin} cMax={cmpR.critMax} color="#f97316" />
           <div className="p-2.5 bg-[#191919] rounded-xl border border-[#2c2c2c] text-xs">
             <div className="text-[#555] mb-1">FD Table — Patch {skill.patchLv}</div>
