@@ -165,7 +165,9 @@ function PresetPanel({ state }: { state: PresetPanelState }) {
                   <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-20 pointer-events-none"
                     style={{ background: cls!.color }} />
                   {/* Class icon */}
-                  <div className="absolute top-1.5 right-2.5 text-xl opacity-60">{cls!.icon}</div>
+                  <div className="absolute top-1.5 right-2.5 opacity-60">
+                    <img src={cls!.icon} alt={preset.classType} className="w-7 h-7 object-contain" />
+                  </div>
 
                   <div className="p-3 pt-6 pb-2 flex flex-col h-full min-h-[110px]">
                     <div className="text-sm font-bold truncate pr-6" style={{ color: cls!.color }}>
@@ -1045,6 +1047,9 @@ function RightPanel({ build, skill, setSkill, cmp }: {
 
   function DRow({ label, min, max, cMin, cMax, color }: { label: string; min: number; max: number; cMin: number; cMax: number; color: string }) {
     const dMin = cMin - min, dMax = cMax - max;
+    const pctMin = min > 0 ? ((cMin - min) / min * 100) : 0;
+    const pctMax = max > 0 ? ((cMax - max) / max * 100) : 0;
+    const avgPct = (pctMin + pctMax) / 2;
     return (
       <div className="p-3 rounded-xl bg-[#1d1d1d] border border-[#2c2c2c]">
         <div className="text-xs font-bold mb-1.5" style={{ color }}>{label}</div>
@@ -1055,16 +1060,28 @@ function RightPanel({ build, skill, setSkill, cmp }: {
               <span className="text-[10px] text-[#3a3a3a]">→</span>
               <span className="text-sm font-bold" style={{ color }}>{fmt(cMin)} – {fmt(cMax)}</span>
             </div>
-            <div className="flex gap-1 flex-wrap">
-              {[dMin, dMax].filter((d, i, a) => a.indexOf(d) === i).map((d, i) => (
+            <div className="flex gap-1 flex-wrap items-center">
+              {[{ d: dMin, p: pctMin }, { d: dMax, p: pctMax }]
+                .filter((x, i, a) => a.findIndex(y => y.d === x.d) === i)
+                .map((x, i) => (
                 <span key={i} className="text-xs px-1.5 py-0.5 rounded-full font-bold"
                   style={{
-                    background: d >= 0 ? "#22c55e15" : "#ef444415", color: d >= 0 ? "#22c55e" : "#ef4444",
-                    border: "1px solid " + (d >= 0 ? "#22c55e35" : "#ef444435")
+                    background: x.d >= 0 ? "#22c55e15" : "#ef444415", color: x.d >= 0 ? "#22c55e" : "#ef4444",
+                    border: "1px solid " + (x.d >= 0 ? "#22c55e35" : "#ef444435")
                   }}>
-                  {d >= 0 ? "+" : ""}{fmt(d)}
+                  {x.d >= 0 ? "+" : ""}{fmt(x.d)}
                 </span>
               ))}
+              {(Math.abs(avgPct) > 0.01) && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                  style={{
+                    background: avgPct >= 0 ? "#22c55e10" : "#ef444410",
+                    color: avgPct >= 0 ? "#22c55e" : "#ef4444",
+                    border: "1px solid " + (avgPct >= 0 ? "#22c55e25" : "#ef444425")
+                  }}>
+                  {avgPct >= 0 ? "+" : ""}{avgPct.toFixed(1)}%
+                </span>
+              )}
             </div>
           </div>
         ) : (
@@ -1074,7 +1091,7 @@ function RightPanel({ build, skill, setSkill, cmp }: {
     );
   }
 
-  function StatBox({ label, val, cVal, color }: { label: React.ReactNode; val: string; cVal: string; color: string }) {
+  function StatBox({ label, val, cVal, color, diff }: { label: React.ReactNode; val: string; cVal: string; color: string; diff?: { val: number; unit?: string } }) {
     return (
       <div className="p-2 rounded-xl bg-[#1e1e1e] border border-[#2c2c2c] text-center flex flex-col justify-center min-w-0">
         <div className="text-[10px] sm:text-xs mb-0.5 whitespace-nowrap overflow-hidden text-ellipsis" style={{ color }}>{label}</div>
@@ -1083,6 +1100,16 @@ function RightPanel({ build, skill, setSkill, cmp }: {
             <span className="text-[10px] font-bold text-[#666]">{val}</span>
             <span className="text-[8px] text-[#444] my-0.5">▼</span>
             <span className="text-xs font-bold" style={{ color }}>{cVal}</span>
+            {diff !== undefined && Math.abs(diff.val) > 0.001 && (
+              <span className="mt-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                style={{
+                  background: diff.val >= 0 ? "#22c55e12" : "#ef444412",
+                  color: diff.val >= 0 ? "#22c55e" : "#ef4444",
+                  border: "1px solid " + (diff.val >= 0 ? "#22c55e30" : "#ef444430")
+                }}>
+                {diff.val >= 0 ? "+" : ""}{diff.val.toFixed(diff.unit === "raw" ? 0 : 1)}{diff.unit !== "raw" ? "%" : ""}
+              </span>
+            )}
           </div>
         ) : (
           <div className="text-[13px] sm:text-sm font-bold mt-0.5" style={{ color }}>{val}</div>
@@ -1152,25 +1179,28 @@ function RightPanel({ build, skill, setSkill, cmp }: {
         <div className="space-y-1.5 pt-1">
           {/* Base primary stats */}
           <div className="grid grid-cols-3 gap-1.5">
-            <StatBox label="STR" val={fmt(cur.strFin)} cVal={fmt(cmpR.strFin)} color="#ef4444" />
-            <StatBox label="AGI" val={fmt(cur.agiFin)} cVal={fmt(cmpR.agiFin)} color="#22c55e" />
-            <StatBox label="INT" val={fmt(cur.intFin)} cVal={fmt(cmpR.intFin)} color="#a78bfa" />
+            <StatBox label="STR" val={fmt(cur.strFin)} cVal={fmt(cmpR.strFin)} color="#ef4444" diff={{ val: cmpR.strFin - cur.strFin, unit: "raw" }} />
+            <StatBox label="AGI" val={fmt(cur.agiFin)} cVal={fmt(cmpR.agiFin)} color="#22c55e" diff={{ val: cmpR.agiFin - cur.agiFin, unit: "raw" }} />
+            <StatBox label="INT" val={fmt(cur.intFin)} cVal={fmt(cmpR.intFin)} color="#a78bfa" diff={{ val: cmpR.intFin - cur.intFin, unit: "raw" }} />
           </div>
           {/* Attack ranges */}
           <div className="grid grid-cols-2 gap-1.5">
-            <StatBox label="⚔️ Physical Attack" val={`${fmt(cur.physAtkMin)} - ${fmt(cur.physAtkMax)}`} cVal={`${fmt(cmpR.physAtkMin)} - ${fmt(cmpR.physAtkMax)}`} color="#fb923c" />
-            <StatBox label="🔮 Magic Attack" val={`${fmt(cur.magAtkMin)} - ${fmt(cur.magAtkMax)}`} cVal={`${fmt(cmpR.magAtkMin)} - ${fmt(cmpR.magAtkMax)}`} color="#38bdf8" />
+            <StatBox label="⚔️ Physical Attack" val={`${fmt(cur.physAtkMin)} - ${fmt(cur.physAtkMax)}`} cVal={`${fmt(cmpR.physAtkMin)} - ${fmt(cmpR.physAtkMax)}`} color="#fb923c"
+              diff={{ val: cur.physAtkMax > 0 ? ((cmpR.physAtkMax - cur.physAtkMax) / cur.physAtkMax * 100) : 0 }} />
+            <StatBox label="🔮 Magic Attack" val={`${fmt(cur.magAtkMin)} - ${fmt(cur.magAtkMax)}`} cVal={`${fmt(cmpR.magAtkMin)} - ${fmt(cmpR.magAtkMax)}`} color="#38bdf8"
+              diff={{ val: cur.magAtkMax > 0 ? ((cmpR.magAtkMax - cur.magAtkMax) / cur.magAtkMax * 100) : 0 }} />
           </div>
           {/* Element Percentages */}
           <div className="grid grid-cols-4 gap-1.5">
-            <StatBox label="🔥 Fire" val={`${cur.firePct}%`} cVal={`${cmpR.firePct}%`} color={ELEM_COLORS.fire} />
-            <StatBox label="❄️ Ice" val={`${cur.icePct}%`} cVal={`${cmpR.icePct}%`} color={ELEM_COLORS.ice} />
-            <StatBox label="⚡ Light" val={`${cur.lightPct}%`} cVal={`${cmpR.lightPct}%`} color={ELEM_COLORS.light} />
-            <StatBox label="🌑 Dark" val={`${cur.darkPct}%`} cVal={`${cmpR.darkPct}%`} color={ELEM_COLORS.dark} />
+            <StatBox label="🔥 Fire" val={`${cur.firePct}%`} cVal={`${cmpR.firePct}%`} color={ELEM_COLORS.fire} diff={{ val: cmpR.firePct - cur.firePct }} />
+            <StatBox label="❄️ Ice" val={`${cur.icePct}%`} cVal={`${cmpR.icePct}%`} color={ELEM_COLORS.ice} diff={{ val: cmpR.icePct - cur.icePct }} />
+            <StatBox label="⚡ Light" val={`${cur.lightPct}%`} cVal={`${cmpR.lightPct}%`} color={ELEM_COLORS.light} diff={{ val: cmpR.lightPct - cur.lightPct }} />
+            <StatBox label="🌑 Dark" val={`${cur.darkPct}%`} cVal={`${cmpR.darkPct}%`} color={ELEM_COLORS.dark} diff={{ val: cmpR.darkPct - cur.darkPct }} />
           </div>
           {/* Final Damage */}
           <div className="grid grid-cols-1 gap-1.5">
-            <StatBox label="✨ Final Damage" val={`${fmt(cur.fdRaw)} (${cur.fdPct}%)`} cVal={`${fmt(cmpR.fdRaw)} (${cmpR.fdPct}%)`} color="#ffd700" />
+            <StatBox label="✨ Final Damage" val={`${fmt(cur.fdRaw)} (${cur.fdPct}%)`} cVal={`${fmt(cmpR.fdRaw)} (${cmpR.fdPct}%)`} color="#ffd700"
+              diff={{ val: cmpR.fdPct - cur.fdPct }} />
           </div>
         </div>
       </Collapsible>
@@ -1184,7 +1214,7 @@ function RightPanel({ build, skill, setSkill, cmp }: {
           <DRow label="⚔️ Base" min={cur.baseMin} max={cur.baseMax} cMin={cmpR.baseMin} cMax={cmpR.baseMax} color="#94a3b8" />
           <DRow label={"🌊 Element (" + (skill.skillElement === "none" ? "+0" : skill.skillElement) + ")"}
             min={cur.elemMin} max={cur.elemMax} cMin={cmpR.elemMin} cMax={cmpR.elemMax} color={ELEM_COLORS[skill.skillElement]} />
-          <DRow label={"✨ Final Damage " + cur.fdPct + "%"} min={cur.fdMin} max={cur.fdMax} cMin={cmpR.fdMin} cMax={cmpR.fdMax} color="#ffd700" />
+          <DRow label={"✨ Final Damage " + (cmp ? `${cur.fdPct}% → ${cmpR.fdPct}% (${cmpR.fdPct - cur.fdPct >= 0 ? "+" : ""}${cmpR.fdPct - cur.fdPct}% pts)` : `${cur.fdPct}%`)} min={cur.fdMin} max={cur.fdMax} cMin={cmpR.fdMin} cMax={cmpR.fdMax} color="#ffd700" />
           <DRow label="💥 Critical ×2" min={cur.critMin} max={cur.critMax} cMin={cmpR.critMin} cMax={cmpR.critMax} color="#f97316" />
           <div className="p-2.5 bg-[#191919] rounded-xl border border-[#2c2c2c] text-xs">
             <div className="text-[#555] mb-1">FD Table — Patch {skill.patchLv}</div>
@@ -1284,7 +1314,9 @@ export default function DamageCalculator() {
                 border: "1px solid " + (build.class === c ? CLASS_INFO[c].color : "#303030"),
                 color: build.class === c ? CLASS_INFO[c].color : "#555"
               }}>
-              {CLASS_INFO[c].icon} {c}
+              {CLASS_INFO[c].icon
+                ? <img src={CLASS_INFO[c].icon} alt={c} className="w-4 h-4 object-contain" />
+                : null} {c}
             </button>
           ))}
         </div>
