@@ -352,23 +352,42 @@ function StatList({ rows, onChange, dim, accent = "#ffd700" }: {
 }
 
 // DiffPills
-function DiffPills({ a, b }: { a: StatRow[]; b: StatRow[] }) {
-  const sum = (rows: StatRow[], t: string) => rows.filter(r => r.type === t).reduce((acc, r) => acc + (parseFloat((r.value || '').replace(/,/g, '')) || 0), 0);
-  const types = Array.from(new Set([...a, ...b].map(r => r.type))).filter(Boolean);
-  const diffs = types.map(t => ({ t, d: sum(b, t) - sum(a, t) })).filter(x => x.d !== 0);
+function DiffPills({ a, b, bIsEmpty }: { a: StatRow[]; b: StatRow[]; bIsEmpty?: boolean }) {
+  if (bIsEmpty) return <div className="text-xs text-[#3a3a3a] italic">ไม่ต่างกัน</div>;
+  const sum = (rows: StatRow[], t: string, isPct: boolean) =>
+    rows.filter(r => r.type === t && r.isPercent === isPct)
+      .reduce((acc, r) => acc + (parseFloat((r.value || '').replace(/,/g, '')) || 0), 0);
+  const keys = Array.from(new Set([...a, ...b].filter(r => r.type).map(r => `${r.type}|${r.isPercent}`)));
+  const diffs = keys.map(key => {
+    const sep = key.lastIndexOf('|');
+    const t = key.slice(0, sep);
+    const isPct = key.slice(sep + 1) === 'true';
+    return { t, isPct, d: sum(b, t, isPct) - sum(a, t, isPct) };
+  }).filter(x => x.d !== 0);
   if (!diffs.length) return <div className="text-xs text-[#3a3a3a] italic">ไม่ต่างกัน</div>;
   return (
     <div className="flex flex-wrap gap-1">
-      {diffs.map(({ t, d }) => (
-        <span key={t} className="text-xs px-1.5 py-0.5 rounded-full font-bold"
+      {diffs.map(({ t, isPct, d }) => (
+        <span key={`${t}-${isPct}`} className="text-xs px-1.5 py-0.5 rounded-full font-bold"
           style={{
             background: d > 0 ? "#22c55e15" : "#ef444415", color: d > 0 ? "#22c55e" : "#ef4444",
             border: "1px solid " + (d > 0 ? "#22c55e35" : "#ef444435")
           }}>
-          {t} {d > 0 ? "+" : ""}{Math.round(d * 100) / 100}
+          {t} {d > 0 ? "+" : ""}{Math.round(d * 100) / 100}{isPct ? "%" : ""}
         </span>
       ))}
     </div>
+  );
+}
+
+// CopyLeftBtn — copies current (left) side to compare (right) side
+function CopyLeftBtn({ onCopy, accent }: { onCopy: () => void; accent: string }) {
+  return (
+    <button type="button" onClick={onCopy}
+      className="text-[10px] px-1.5 py-0.5 rounded border cursor-pointer hover:opacity-90 transition-opacity"
+      style={{ borderColor: accent + "40", color: accent + "90", background: accent + "10" }}>
+      ← copy
+    </button>
   );
 }
 
@@ -444,11 +463,22 @@ function SlotRow({ label, pair, potPair, onPairChange, onPotChange, cmp, accent 
   const [potOpen, setPotOpen] = useState(false);
   const [cur] = pair;
   const pot = potPair ?? emptyPair();
+  const isRight1Empty = pair[1].every(r => !r.type && !r.value);
+  const copyToRight = () => {
+    const newRight = cur.map(r => ({ ...r, id: uid() }));
+    onPairChange([cur, newRight]);
+    if (onPotChange) {
+      const newPotRight = pot[0].map((r: StatRow) => ({ ...r, id: uid() }));
+      onPotChange([pot[0], newPotRight]);
+    }
+  };
   return (
     <InnerCard>
       <div className="px-3 pt-2 pb-1.5 flex items-center gap-2 border-b border-[#232323]">
         <span className="text-sm font-bold" style={{ color: cmp ? "#3a3a3a" : accent }}>{label}</span>
-        {cmp && <><div className="flex-1 h-px bg-[#232323]" /><span className="text-xs font-bold" style={{ color: accent }}>เปรียบ →</span></>}
+        {cmp && <><div className="flex-1 h-px bg-[#232323]" />
+          <CopyLeftBtn onCopy={copyToRight} accent={accent} />
+          <span className="text-xs font-bold" style={{ color: accent }}>เปรียบ →</span></>}
         {!cmp && <div className="flex-1" />}
         {onRemove && (
           <button type="button" onClick={onRemove}
@@ -462,7 +492,7 @@ function SlotRow({ label, pair, potPair, onPairChange, onPotChange, cmp, accent 
             <div className="text-[10px] font-bold uppercase tracking-widest pl-3" style={{ color: accent }}>ใหม่</div>
           </div>
           <PairCols pair={pair} onChange={onPairChange} accent={accent} dim0 />
-          <div className="mt-2 pt-2 border-t border-[#232323]"><DiffPills a={cur} b={getEff(pair)} /></div>
+          <div className="mt-2 pt-2 border-t border-[#232323]"><DiffPills a={cur} b={getEff(pair)} bIsEmpty={isRight1Empty} /></div>
         </div>
       ) : (
         <div className="p-3">
@@ -521,6 +551,8 @@ function PairPanel({ pair, onChange, cmp, accent = "#ffd700" }: {
   pair: Pair; onChange: (p: Pair) => void; cmp: boolean; accent?: string;
 }) {
   const [cur, cm] = pair;
+  const isRight1Empty = cm.every(r => !r.type && !r.value);
+  const copyToRight = () => onChange([cur, cur.map(r => ({ ...r, id: uid() }))]);
   if (!cmp) return (
     <InnerCard className="p-3">
       <StatList rows={cur} onChange={r => onChange([r, cm])} accent={accent} />
@@ -529,13 +561,18 @@ function PairPanel({ pair, onChange, cmp, accent = "#ffd700" }: {
   return (
     <InnerCard>
       <div className="p-3">
-        <div className="grid grid-cols-2 mb-2">
+        <div className="grid grid-cols-2 mb-2 items-center">
           <div className="text-[10px] text-[#444] font-bold uppercase tracking-widest">ปัจจุบัน</div>
-          <div className="text-[10px] font-bold uppercase tracking-widest pl-3" style={{ color: accent }}>ใหม่</div>
+          <div className="flex items-center gap-2 pl-3">
+            <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accent }}>ใหม่</div>
+            <CopyLeftBtn onCopy={copyToRight} accent={accent} />
+          </div>
         </div>
         <PairCols pair={pair} onChange={onChange} accent={accent} dim0 />
       </div>
-      <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl"><DiffPills a={cur} b={getEff(pair)} /></div>
+      <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
+        <DiffPills a={cur} b={getEff(pair)} bIsEmpty={isRight1Empty} />
+      </div>
     </InnerCard>
   );
 }
@@ -570,12 +607,22 @@ function ArmorSlotRow({ label, slot, onChange, cmp, accent = "#fb923c" }: {
   const [curSt, cmSt] = slot.statPair;
   const [curEn, cmEn] = slot.enhancedPair;
   const pot = slot.potentialPair ?? emptyPair();
-  const [curPot, cmPot] = pot;
+  const [curPot] = pot;
+  const isRight1Empty = cmSt.every(r => !r.type && !r.value) && cmEn.every(r => !r.type && !r.value);
+  const copyToRight = () => {
+    onChange({
+      ...slot,
+      statPair: [curSt, curSt.map(r => ({ ...r, id: uid() }))],
+      enhancedPair: [curEn, curEn.map(r => ({ ...r, id: uid() }))],
+      potentialPair: [curPot, curPot.map((r: StatRow) => ({ ...r, id: uid() }))],
+    });
+  };
   return (
     <InnerCard>
       <div className="px-3 pt-2 pb-1.5 flex items-center gap-2 border-b border-[#232323]">
         <span className="text-sm font-bold" style={{ color: cmp ? "#3a3a3a" : accent }}>{label}</span>
         {cmp && <><div className="flex-1 h-px bg-[#232323]" />
+          <CopyLeftBtn onCopy={copyToRight} accent={accent} />
           <span className="text-[10px] text-[#444] font-bold uppercase tracking-widest">ปัจจุบัน</span>
           <div className="w-px h-3 bg-[#333] mx-1" />
           <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: accent }}>ใหม่</span>
@@ -607,7 +654,7 @@ function ArmorSlotRow({ label, slot, onChange, cmp, accent = "#fb923c" }: {
       </SubPanel>
       {cmp && (
         <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
-          <DiffPills a={[...curSt, ...curEn, ...curPot]} b={[...getEff(slot.statPair), ...getEff(slot.enhancedPair), ...getEff(pot)]} />
+          <DiffPills a={[...curSt, ...curEn, ...curPot]} b={[...getEff(slot.statPair), ...getEff(slot.enhancedPair), ...getEff(pot)]} bIsEmpty={isRight1Empty} />
         </div>
       )}
     </InnerCard>
@@ -707,10 +754,26 @@ function WeaponCard({ label, data, onChange, cmp, accent }: {
   const [enhOpen, setEnhOpen] = useState(false);
   const [potOpen, setPotOpen] = useState(false);
   const pot = data.potentialPair ?? emptyPair();
+  const isRight1Empty = data.statPair[1].every(r => !r.type && !r.value);
+  const copyToRight = () => {
+    onChange({
+      ...data,
+      physMinCmp: data.physMin, physMaxCmp: data.physMax,
+      magMinCmp: data.magMin, magMaxCmp: data.magMax,
+      enhPhysMinCmp: data.enhPhysMin, enhPhysMaxCmp: data.enhPhysMax,
+      enhMagMinCmp: data.enhMagMin, enhMagMaxCmp: data.enhMagMax,
+      potPhysMinCmp: data.potPhysMin, potPhysMaxCmp: data.potPhysMax,
+      potMagMinCmp: data.potMagMin, potMagMaxCmp: data.potMagMax,
+      statPair: [data.statPair[0], data.statPair[0].map(r => ({ ...r, id: uid() }))],
+      enhancedPair: [data.enhancedPair[0], data.enhancedPair[0].map(r => ({ ...r, id: uid() }))],
+      potentialPair: [pot[0], pot[0].map((r: StatRow) => ({ ...r, id: uid() }))],
+    });
+  };
   return (
     <InnerCard>
-      <div className="px-3 pt-2.5 pb-2 border-b border-[#232323]">
-        <span className="text-sm font-bold" style={{ color: accent }}>{label}</span>
+      <div className="px-3 pt-2.5 pb-2 border-b border-[#232323] flex items-center gap-2">
+        <span className="text-sm font-bold flex-1" style={{ color: accent }}>{label}</span>
+        {cmp && <CopyLeftBtn onCopy={copyToRight} accent={accent} />}
       </div>
       <div className="p-3 space-y-3">
         <WeaponDmgRow label="⚔️ Physical" cmp={cmp} rowColor="#fb923c"
@@ -766,7 +829,7 @@ function WeaponCard({ label, data, onChange, cmp, accent }: {
       </SubPanel>
       {cmp && (
         <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
-          <DiffPills a={[...data.statPair[0], ...data.enhancedPair[0], ...pot[0]]} b={[...getEff(data.statPair), ...getEff(data.enhancedPair), ...getEff(pot)]} />
+          <DiffPills a={[...data.statPair[0], ...data.enhancedPair[0], ...pot[0]]} b={[...getEff(data.statPair), ...getEff(data.enhancedPair), ...getEff(pot)]} bIsEmpty={isRight1Empty} />
         </div>
       )}
     </InnerCard>
@@ -777,10 +840,20 @@ function WeaponCard({ label, data, onChange, cmp, accent }: {
 function CostumeWeaponCard({ label, slot, onChange, cmp, accent }: {
   label: string; slot: CostumeSlot; onChange: (s: CostumeSlot) => void; cmp: boolean; accent: string;
 }) {
+  const isRight1Empty = slot.statPair[1].every(r => !r.type && !r.value);
+  const copyToRight = () => {
+    onChange({
+      ...slot,
+      physMinCmp: slot.physMin, physMaxCmp: slot.physMax,
+      magMinCmp: slot.magMin, magMaxCmp: slot.magMax,
+      statPair: [slot.statPair[0], slot.statPair[0].map(r => ({ ...r, id: uid() }))],
+    });
+  };
   return (
     <InnerCard>
-      <div className="px-3 pt-2.5 pb-2 border-b border-[#232323]">
-        <span className="text-sm font-bold" style={{ color: accent }}>{label}</span>
+      <div className="px-3 pt-2.5 pb-2 border-b border-[#232323] flex items-center gap-2">
+        <span className="text-sm font-bold flex-1" style={{ color: accent }}>{label}</span>
+        {cmp && <CopyLeftBtn onCopy={copyToRight} accent={accent} />}
       </div>
       <div className="p-3 space-y-3">
         <WeaponPctRow label="⚔️ Physical %" cmp={cmp} rowColor="#fb923c"
@@ -802,7 +875,7 @@ function CostumeWeaponCard({ label, slot, onChange, cmp, accent }: {
       </div>
       {cmp && (
         <div className="px-3 py-2 border-t border-[#232323] bg-[#191919] rounded-b-xl">
-          <DiffPills a={slot.statPair[0]} b={getEff(slot.statPair)} />
+          <DiffPills a={slot.statPair[0]} b={getEff(slot.statPair)} bIsEmpty={isRight1Empty} />
         </div>
       )}
     </InnerCard>
@@ -1002,7 +1075,12 @@ function SetBonusBlock({ bonuses, onChange, color, cmp, maxPieces }: {
 
   const getEnabledRows = (side: 0 | 1) =>
     bonuses.filter(b => b.pieces > 0 && (side === 0 ? b.enabledCur : b.enabledCmp))
-      .flatMap(b => b.effects[0].pair[side] ?? []);
+      .flatMap(b => {
+        const pair = b.effects[0].pair;
+        if (side === 0) return pair[0];
+        const s1 = (pair[1] ?? []).filter((r: StatRow) => r.type !== '' || r.value !== '');
+        return s1.length > 0 ? pair[1] : pair[0];
+      });
 
   return (
     <InnerCard>
@@ -1072,7 +1150,7 @@ function RightPanel({ build, skill, setSkill, cmp }: {
                   {x.d >= 0 ? "+" : ""}{fmt(x.d)}
                 </span>
               ))}
-              {(Math.abs(avgPct) > 0.01) && (
+              {Math.abs(avgPct) > 0.01 && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                   style={{
                     background: avgPct >= 0 ? "#22c55e10" : "#ef444410",
@@ -1091,7 +1169,10 @@ function RightPanel({ build, skill, setSkill, cmp }: {
     );
   }
 
-  function StatBox({ label, val, cVal, color, diff }: { label: React.ReactNode; val: string; cVal: string; color: string; diff?: { val: number; unit?: string } }) {
+  function StatBox({ label, val, cVal, color, rawDiff, pctDiff }: {
+    label: React.ReactNode; val: string; cVal: string; color: string;
+    rawDiff?: number; pctDiff?: number;
+  }) {
     return (
       <div className="p-2 rounded-xl bg-[#1e1e1e] border border-[#2c2c2c] text-center flex flex-col justify-center min-w-0">
         <div className="text-[10px] sm:text-xs mb-0.5 whitespace-nowrap overflow-hidden text-ellipsis" style={{ color }}>{label}</div>
@@ -1100,16 +1181,20 @@ function RightPanel({ build, skill, setSkill, cmp }: {
             <span className="text-[10px] font-bold text-[#666]">{val}</span>
             <span className="text-[8px] text-[#444] my-0.5">▼</span>
             <span className="text-xs font-bold" style={{ color }}>{cVal}</span>
-            {diff !== undefined && Math.abs(diff.val) > 0.001 && (
-              <span className="mt-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold"
-                style={{
-                  background: diff.val >= 0 ? "#22c55e12" : "#ef444412",
-                  color: diff.val >= 0 ? "#22c55e" : "#ef4444",
-                  border: "1px solid " + (diff.val >= 0 ? "#22c55e30" : "#ef444430")
-                }}>
-                {diff.val >= 0 ? "+" : ""}{diff.val.toFixed(diff.unit === "raw" ? 0 : 1)}{diff.unit !== "raw" ? "%" : ""}
-              </span>
-            )}
+            <div className="flex flex-wrap justify-center gap-0.5 mt-1">
+              {rawDiff !== undefined && Math.abs(rawDiff) > 0.001 && (
+                <span className="text-[9px] px-1 py-0.5 rounded-full font-bold"
+                  style={{ background: rawDiff >= 0 ? "#22c55e12" : "#ef444412", color: rawDiff >= 0 ? "#22c55e" : "#ef4444", border: "1px solid " + (rawDiff >= 0 ? "#22c55e30" : "#ef444430") }}>
+                  {rawDiff >= 0 ? "+" : ""}{Math.round(rawDiff).toLocaleString()}
+                </span>
+              )}
+              {pctDiff !== undefined && Math.abs(pctDiff) > 0.001 && (
+                <span className="text-[9px] px-1 py-0.5 rounded-full font-bold"
+                  style={{ background: pctDiff >= 0 ? "#22c55e12" : "#ef444412", color: pctDiff >= 0 ? "#22c55e" : "#ef4444", border: "1px solid " + (pctDiff >= 0 ? "#22c55e30" : "#ef444430") }}>
+                  {pctDiff >= 0 ? "+" : ""}{pctDiff.toFixed(1)}%
+                </span>
+              )}
+            </div>
           </div>
         ) : (
           <div className="text-[13px] sm:text-sm font-bold mt-0.5" style={{ color }}>{val}</div>
@@ -1177,30 +1262,30 @@ function RightPanel({ build, skill, setSkill, cmp }: {
 
       <Collapsible title="Stats Summary" icon="📊" color="#94a3b8" defaultOpen={true}>
         <div className="space-y-1.5 pt-1">
-          {/* Base primary stats */}
+          {/* Base primary stats — raw diff */}
           <div className="grid grid-cols-3 gap-1.5">
-            <StatBox label="STR" val={fmt(cur.strFin)} cVal={fmt(cmpR.strFin)} color="#ef4444" diff={{ val: cmpR.strFin - cur.strFin, unit: "raw" }} />
-            <StatBox label="AGI" val={fmt(cur.agiFin)} cVal={fmt(cmpR.agiFin)} color="#22c55e" diff={{ val: cmpR.agiFin - cur.agiFin, unit: "raw" }} />
-            <StatBox label="INT" val={fmt(cur.intFin)} cVal={fmt(cmpR.intFin)} color="#a78bfa" diff={{ val: cmpR.intFin - cur.intFin, unit: "raw" }} />
+            <StatBox label="STR" val={fmt(cur.strFin)} cVal={fmt(cmpR.strFin)} color="#ef4444" rawDiff={cmpR.strFin - cur.strFin} />
+            <StatBox label="AGI" val={fmt(cur.agiFin)} cVal={fmt(cmpR.agiFin)} color="#22c55e" rawDiff={cmpR.agiFin - cur.agiFin} />
+            <StatBox label="INT" val={fmt(cur.intFin)} cVal={fmt(cmpR.intFin)} color="#a78bfa" rawDiff={cmpR.intFin - cur.intFin} />
           </div>
-          {/* Attack ranges */}
+          {/* Attack ranges — raw diff */}
           <div className="grid grid-cols-2 gap-1.5">
             <StatBox label="⚔️ Physical Attack" val={`${fmt(cur.physAtkMin)} - ${fmt(cur.physAtkMax)}`} cVal={`${fmt(cmpR.physAtkMin)} - ${fmt(cmpR.physAtkMax)}`} color="#fb923c"
-              diff={{ val: cur.physAtkMax > 0 ? ((cmpR.physAtkMax - cur.physAtkMax) / cur.physAtkMax * 100) : 0 }} />
+              rawDiff={cmpR.physAtkMax - cur.physAtkMax} />
             <StatBox label="🔮 Magic Attack" val={`${fmt(cur.magAtkMin)} - ${fmt(cur.magAtkMax)}`} cVal={`${fmt(cmpR.magAtkMin)} - ${fmt(cmpR.magAtkMax)}`} color="#38bdf8"
-              diff={{ val: cur.magAtkMax > 0 ? ((cmpR.magAtkMax - cur.magAtkMax) / cur.magAtkMax * 100) : 0 }} />
+              rawDiff={cmpR.magAtkMax - cur.magAtkMax} />
           </div>
-          {/* Element Percentages */}
+          {/* Element Percentages — % diff only */}
           <div className="grid grid-cols-4 gap-1.5">
-            <StatBox label="🔥 Fire" val={`${cur.firePct}%`} cVal={`${cmpR.firePct}%`} color={ELEM_COLORS.fire} diff={{ val: cmpR.firePct - cur.firePct }} />
-            <StatBox label="❄️ Ice" val={`${cur.icePct}%`} cVal={`${cmpR.icePct}%`} color={ELEM_COLORS.ice} diff={{ val: cmpR.icePct - cur.icePct }} />
-            <StatBox label="⚡ Light" val={`${cur.lightPct}%`} cVal={`${cmpR.lightPct}%`} color={ELEM_COLORS.light} diff={{ val: cmpR.lightPct - cur.lightPct }} />
-            <StatBox label="🌑 Dark" val={`${cur.darkPct}%`} cVal={`${cmpR.darkPct}%`} color={ELEM_COLORS.dark} diff={{ val: cmpR.darkPct - cur.darkPct }} />
+            <StatBox label="🔥 Fire" val={`${cur.firePct}%`} cVal={`${cmpR.firePct}%`} color={ELEM_COLORS.fire} pctDiff={cmpR.firePct - cur.firePct} />
+            <StatBox label="❄️ Ice" val={`${cur.icePct}%`} cVal={`${cmpR.icePct}%`} color={ELEM_COLORS.ice} pctDiff={cmpR.icePct - cur.icePct} />
+            <StatBox label="⚡ Light" val={`${cur.lightPct}%`} cVal={`${cmpR.lightPct}%`} color={ELEM_COLORS.light} pctDiff={cmpR.lightPct - cur.lightPct} />
+            <StatBox label="🌑 Dark" val={`${cur.darkPct}%`} cVal={`${cmpR.darkPct}%`} color={ELEM_COLORS.dark} pctDiff={cmpR.darkPct - cur.darkPct} />
           </div>
-          {/* Final Damage */}
+          {/* Final Damage — both raw (FD points) and % diff */}
           <div className="grid grid-cols-1 gap-1.5">
             <StatBox label="✨ Final Damage" val={`${fmt(cur.fdRaw)} (${cur.fdPct}%)`} cVal={`${fmt(cmpR.fdRaw)} (${cmpR.fdPct}%)`} color="#ffd700"
-              diff={{ val: cmpR.fdPct - cur.fdPct }} />
+              rawDiff={cmpR.fdRaw - cur.fdRaw} pctDiff={cmpR.fdPct - cur.fdPct} />
           </div>
         </div>
       </Collapsible>
@@ -1214,7 +1299,7 @@ function RightPanel({ build, skill, setSkill, cmp }: {
           <DRow label="⚔️ Base" min={cur.baseMin} max={cur.baseMax} cMin={cmpR.baseMin} cMax={cmpR.baseMax} color="#94a3b8" />
           <DRow label={"🌊 Element (" + (skill.skillElement === "none" ? "+0" : skill.skillElement) + ")"}
             min={cur.elemMin} max={cur.elemMax} cMin={cmpR.elemMin} cMax={cmpR.elemMax} color={ELEM_COLORS[skill.skillElement]} />
-          <DRow label={"✨ Final Damage " + (cmp ? `${cur.fdPct}% → ${cmpR.fdPct}% (${cmpR.fdPct - cur.fdPct >= 0 ? "+" : ""}${cmpR.fdPct - cur.fdPct}% pts)` : `${cur.fdPct}%`)} min={cur.fdMin} max={cur.fdMax} cMin={cmpR.fdMin} cMax={cmpR.fdMax} color="#ffd700" />
+          <DRow label={"✨ Final Damage " + (cmp ? `${cur.fdPct}% → ${cmpR.fdPct}% (${cmpR.fdPct - cur.fdPct >= 0 ? "+" : ""}${(cmpR.fdPct - cur.fdPct).toFixed(0)}% pts)` : `${cur.fdPct}%`)} min={cur.fdMin} max={cur.fdMax} cMin={cmpR.fdMin} cMax={cmpR.fdMax} color="#ffd700" />
           <DRow label="💥 Critical ×2" min={cur.critMin} max={cur.critMax} cMin={cmpR.critMin} cMax={cmpR.critMax} color="#f97316" />
           <div className="p-2.5 bg-[#191919] rounded-xl border border-[#2c2c2c] text-xs">
             <div className="text-[#555] mb-1">FD Table — Patch {skill.patchLv}</div>
@@ -1314,9 +1399,7 @@ export default function DamageCalculator() {
                 border: "1px solid " + (build.class === c ? CLASS_INFO[c].color : "#303030"),
                 color: build.class === c ? CLASS_INFO[c].color : "#555"
               }}>
-              {CLASS_INFO[c].icon
-                ? <img src={CLASS_INFO[c].icon} alt={c} className="w-4 h-4 object-contain" />
-                : null} {c}
+              <img src={CLASS_INFO[c].icon} alt={c} className="w-4 h-4 object-contain" /> {c}
             </button>
           ))}
         </div>
