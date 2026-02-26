@@ -15,14 +15,8 @@ export const STAT_COLORS: Record<string,string> = {
 };
 
 export const FD_TABLE = [
-  {patch:32,  fd60:1387,  r145:17.6,  r4560:39.7},
-  {patch:40,  fd60:1943,  r145:24.7,  r4560:55.5},
-  {patch:50,  fd60:2718,  r145:34.5,  r4560:77.7},
-  {patch:60,  fd60:3805,  r145:48.3,  r4560:108.8},
-  {patch:70,  fd60:5327,  r145:67.6,  r4560:152.3},
-  {patch:80,  fd60:7458,  r145:94.7,  r4560:213.2},
-  {patch:90,  fd60:10441, r145:132.5, r4560:298.5},
-  {patch:100, fd60:14617, r145:185.5, r4560:417.9},
+  {patch:50, cap45:1529, cap60:2579},
+  {patch:60, cap45:2112, cap60:3762},
 ] as const;
 
 // export type ClassType = 'Warrior'|'Archer'|'Sorceress'|'Cleric'|'Academic'|'Kali'|'Lancea'|'Machina';

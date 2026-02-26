@@ -58,11 +58,10 @@ export function sumPct(rows: StatRow[], type: string): number {
 
 // Final Damage % conversion
 export function fdToPercent(fdRaw: number, patchLv: number): number {
-  const row = FD_TABLE.find(r => r.patch === patchLv) ?? FD_TABLE[FD_TABLE.length - 1];
+  const row = FD_TABLE.find(r => r.patch === patchLv) ?? FD_TABLE[0];
   if (fdRaw <= 0) return 0;
-  const fdAt45 = row.r145 * 45;
-  if (fdRaw <= fdAt45) return Math.min(fdRaw / row.r145, 45);
-  return Math.min(45 + (fdRaw - fdAt45) / row.r4560, 60);
+  if (fdRaw <= row.cap45) return (fdRaw * 45) / row.cap45;
+  return Math.min(45 + (fdRaw - row.cap45) * 15 / (row.cap60 - row.cap45), 60);
 }
 
 // Row collector

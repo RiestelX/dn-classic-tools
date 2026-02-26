@@ -1171,7 +1171,7 @@ function RightPanel({ build, skill, setSkill, cmp }: {
   const cur = calcDmg(build, skill, 0);
   const cmpR = calcDmg(build, skill, 1);
   const inp = "w-full bg-[#1e1e1e] border border-[#303030] rounded-xl px-3 py-2 text-sm text-[#e0e0e0] focus:outline-none focus:border-[#ffd70060]";
-  const fdRow = (FD_TABLE as readonly { patch: number; fd60: number; r145: number; r4560: number }[]).find(r => r.patch === skill.patchLv)!;
+  const fdRow = (FD_TABLE as readonly { patch: number; cap45: number; cap60: number }[]).find(r => r.patch === skill.patchLv)!;
   const fmt = (n: number) => Math.round(n).toLocaleString();
 
   function DRow({ label, min, max, cMin, cMax, color }: { label: string; min: number; max: number; cMin: number; cMax: number; color: string }) {
@@ -1353,11 +1353,10 @@ function RightPanel({ build, skill, setSkill, cmp }: {
           <DRow label={"✨ Final Damage " + (cmp ? `${cur.fdPct}% → ${cmpR.fdPct}% (${cmpR.fdPct - cur.fdPct >= 0 ? "+" : ""}${(cmpR.fdPct - cur.fdPct).toFixed(0)}%)` : `${cur.fdPct}%`)} min={cur.fdMin} max={cur.fdMax} cMin={cmpR.fdMin} cMax={cmpR.fdMax} color="#ffd700" />
           <DRow label="💥 Critical ×2" min={cur.critMin} max={cur.critMax} cMin={cmpR.critMin} cMax={cmpR.critMax} color="#f97316" />
           <div className="p-2.5 bg-[#191919] rounded-xl border border-[#2c2c2c] text-xs">
-            <div className="text-[#555] mb-1">FD Table — Patch {skill.patchLv}</div>
+            <div className="text-[#555] mb-1">FD Table — Lv {skill.patchLv}</div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-              <span className="text-[#555]">60% = <b className="text-[#ffd700]">{fdRow?.fd60.toLocaleString()}</b></span>
-              <span className="text-[#555]">1–45% /pt = <b className="text-white/30">{fdRow?.r145}</b></span>
-              <span className="text-[#555]">45–60% /pt = <b className="text-white/30">{fdRow?.r4560}</b></span>
+              <span className="text-[#555]">45% = <b className="text-[#ffd700]">{fdRow?.cap45.toLocaleString()}</b></span>
+              <span className="text-[#555]">60% = <b className="text-[#ffd700]">{fdRow?.cap60.toLocaleString()}</b></span>
             </div>
           </div>
         </div>
