@@ -60,8 +60,15 @@ export function sumPct(rows: StatRow[], type: string): number {
 export function fdToPercent(fdRaw: number, patchLv: number): number {
   const row = FD_TABLE.find(r => r.patch === patchLv) ?? FD_TABLE[0];
   if (fdRaw <= 0) return 0;
-  if (fdRaw <= row.cap45) return (fdRaw * 45) / row.cap45;
-  return Math.min(45 + (fdRaw - row.cap45) * 15 / (row.cap60 - row.cap45), 60);
+
+  const factor = Math.floor(row.cap45 * 100 / 45);
+
+  if (fdRaw <= row.cap45) {
+    return Math.floor((fdRaw * 100) / factor);
+  }
+
+  const factor2 = Math.floor((row.cap60 - row.cap45) * 100 / 15);
+  return Math.min(45 + Math.floor((fdRaw - row.cap45) * 100 / factor2), 60);
 }
 
 // Row collector
