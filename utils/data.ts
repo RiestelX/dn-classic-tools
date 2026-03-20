@@ -15,8 +15,8 @@ export const STAT_COLORS: Record<string,string> = {
 };
 
 export const FD_TABLE = [
-  {patch:50, cap45:1529, cap60:2669},
-  {patch:60, cap45:2112, cap60:3762},
+  { patch: 50, cap45: 1529, cap50: 1889, cap60: 2709 },
+  { patch: 60, cap45: 2112, cap50: 2622,  cap60: 3762 },
 ] as const;
 
 // export type ClassType = 'Warrior'|'Archer'|'Sorceress'|'Cleric'|'Academic'|'Kali'|'Lancea'|'Machina';

@@ -61,14 +61,20 @@ export function fdToPercent(fdRaw: number, patchLv: number): number {
   const row = FD_TABLE.find(r => r.patch === patchLv) ?? FD_TABLE[0];
   if (fdRaw <= 0) return 0;
 
-  const factor = Math.floor(row.cap45 * 100 / 45);
+  const factor1 = Math.floor(row.cap45 * 100 / 45); // 0 -> 45%
 
   if (fdRaw <= row.cap45) {
-    return Math.floor((fdRaw * 100) / factor);
+    return Math.floor((fdRaw * 100) / factor1);
   }
 
-  const factor2 = Math.floor((row.cap60 - row.cap45) * 100 / 15);
-  return Math.min(45 + Math.floor((fdRaw - row.cap45) * 100 / factor2), 60);
+  const factor2 = Math.floor((row.cap50 - row.cap45) * 100 / 5); // 45 -> 50%
+  const factor3 = Math.floor((row.cap60 - row.cap50) * 100 / 10); // 50 -> 60%
+
+  if (fdRaw <= row.cap50) {
+    return Math.min(50, 45 + Math.floor((fdRaw - row.cap45) * 100 / factor2));
+  }
+
+  return Math.min(60, 50 + Math.floor((fdRaw - row.cap50) * 100 / factor3));
 }
 
 // Row collector
