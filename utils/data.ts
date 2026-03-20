@@ -15,7 +15,7 @@ export const STAT_COLORS: Record<string,string> = {
 };
 
 export const FD_TABLE = [
-  {patch:50, cap45:1529, cap60:2579},
+  {patch:50, cap45:1529, cap60:2669},
   {patch:60, cap45:2112, cap60:3762},
 ] as const;
 
