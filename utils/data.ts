@@ -20,14 +20,14 @@ export const FD_TABLE = [
 ] as const;
 
 // export type ClassType = 'Warrior'|'Archer'|'Sorceress'|'Cleric'|'Academic'|'Kali'|'Lancea'|'Machina';
-export type ClassType = 'Warrior'|'Archer'|'Sorceress'|'Cleric'|'Academic';
+export type ClassType = 'Warrior'|'Archer'|'Sorceress'|'Cleric'|'Academic'|'Kali';
 export const CLASS_INFO: Record<ClassType,{color:string;stats:string[];icon:string;physW:{str:number;agi:number};magW:{int:number}}> = {
   Warrior:   {color:'#ef4444',stats:['STR','AGI'],icon:'/images/Warrior_Class_Icon.png', physW:{str:0.5,agi:0.25}, magW:{int:0.5}},
   Archer:    {color:'#22c55e',stats:['AGI'],       icon:'/images/Archer_Class_Icon.png', physW:{str:0.25,agi:0.5}, magW:{int:0.5}},
   Sorceress: {color:'#a78bfa',stats:['INT'],        icon:'/images/Sorceress_Class_Icon.png', physW:{str:0.25,agi:0.3}, magW:{int:0.75}},
   Cleric:    {color:'#3b82f6',stats:['INT'],        icon:'/images/Cleric_Class_Icon.png', physW:{str:0.5,agi:0.25}, magW:{int:0.5}},
   Academic:  {color:'#f59e0b',stats:['INT','AGI'], icon:'/images/Academic_Class_Icon.png', physW:{str:0.25,agi:0.5}, magW:{int:0.5}},
-//   Kali:      {color:'#f472b6',stats:['AGI','INT'], icon:'🗡️', physW:{str:0.5,agi:0.25}, magW:{int:0.5}},
+  Kali:      {color:'#4444E8',stats:['AGI','INT'], icon:'/images/Kali_Class_Icon.png', physW:{str:0.5,agi:0.25}, magW:{int:0.5}},
 //   Lancea:    {color:'#fb923c',stats:['STR','AGI'], icon:'🔱', physW:{str:0.5,agi:0.25}, magW:{int:0.5}},
 //   Machina:   {color:'#94a3b8',stats:['STR','INT'], icon:'⚙️', physW:{str:0.5,agi:0.25}, magW:{int:0.5}},
 };
